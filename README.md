@@ -1,2 +1,0 @@
-# webpush
-Web Push
