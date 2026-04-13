@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Web Push 测试</title>
+  <link rel="manifest" href="manifest.json">
+  <script>
+    const VAPID_PUBLIC_KEY = 'BE55HixrmNwdCVJMkvLUUvKgu4qKvDrNqGR2PmrDA_6ZeNW_6rFazEbB19I0GjyCTorhRyF_mz3y5eMmItKIObE'; // ← 替换
+
+    function urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const rawData = atob(base64);
+      return new Uint8Array([...rawData].map(char => char.charCodeAt(0)));
+    }
+
+    async function subscribe() {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        alert('浏览器不支持 Web Push');
+        return;
+      }
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') return alert('用户拒绝通知权限');
+
+      const reg = await navigator.serviceWorker.ready;
+      const subscription = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+
+      // 发送订阅到后端
+      await fetch('https://web-push.alanhwangusa.workers.dev/subscribe', {  // ← 替换成你的 Worker URL
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(subscription.toJSON())
+      });
+      alert('订阅成功！现在可以去后端触发推送了');
+    }
+
+    // 注册 Service Worker
+    navigator.serviceWorker.register('/sw.js').then(() => console.log('SW 注册成功'));
+  </script>
+</head>
+<body>
+  <h1>Web Push 测试（iOS 17+ PWA）</h1>
+  <button onclick="subscribe()">订阅推送</button>
+  <p><strong>iOS 用户请先点击 Safari 右上角“分享” → “添加到主屏幕”</strong></p>
+</body>
+</html>
