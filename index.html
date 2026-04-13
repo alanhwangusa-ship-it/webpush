@@ -16,28 +16,44 @@
     }
 
     async function subscribe() {
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        alert('浏览器不支持 Web Push');
-        return;
-      }
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') return alert('用户拒绝通知权限');
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    alert('浏览器不支持 Web Push');
+    return;
+  }
 
-      const reg = await navigator.serviceWorker.ready;
-      const subscription = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-      });
+  const permission = await Notification.requestPermission();
+  alert('通知权限状态: ' + permission);   // ← 新增这行，看看是 granted / denied / default
 
-      // 发送订阅到后端
-      await fetch('https://web-push.alanhwangusa.workers.dev/subscribe', {  // ← 替换成你的 Worker URL
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(subscription.toJSON())
-      });
-      alert('订阅成功！现在可以去后端触发推送了');
+  if (permission !== 'granted') {
+    alert('用户拒绝了通知权限');
+    return;
+  }
+
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const subscription = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+    });
+
+    alert('订阅对象已生成，准备发送到服务器...');
+
+    const response = await fetch('https://你的-worker-url.workers.dev/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(subscription.toJSON())
+    });
+
+    if (response.ok) {
+      alert('✅ 订阅成功！现在可以去 Worker /send 测试推送了');
+    } else {
+      alert('订阅发送失败，状态码: ' + response.status);
     }
-
+  } catch (err) {
+    alert('订阅过程出错: ' + err.message);
+    console.error(err);
+  }
+}
     // 注册 Service Worker
     navigator.serviceWorker.register('/sw.js').then(() => console.log('SW 注册成功'));
   </script>
