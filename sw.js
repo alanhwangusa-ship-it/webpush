@@ -1,16 +1,33 @@
-self.addEventListener('push', event => {
-  const data = event.data ? event.data.json() : { title: '默认标题', body: '默认内容' };
+self.addEventListener('push', async (event) => {
+  let data = { title: '测试推送', body: '这是默认内容' };
+
+  try {
+    if (event.data) {
+      data = event.data.json();
+    }
+  } catch (e) {
+    console.error('解析 push 数据失败', e);
+  }
+
+  const options = {
+    body: data.body || '无内容',
+    icon: '/icon.png',
+    badge: '/icon.png',           // iOS 有时需要 badge
+    tag: data.tag || 'default-tag', // 防止重复通知
+    data: { url: data.url || '/' },
+    requireInteraction: false
+  };
+
+  // 必须用 waitUntil 包裹，且立即显示通知
   event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: '/icon.png',     // 可选，放一张 192x192 的图标
-      tag: data.tag || 'default',
-      data: { url: data.url || '/' }
-    })
+    self.registration.showNotification(data.title, options)
+      .catch(err => console.error('showNotification 失败', err))
   );
 });
 
-self.addEventListener('notificationclick', event => {
+self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  event.waitUntil(clients.openWindow(event.notification.data.url));
+  event.waitUntil(
+    clients.openWindow(event.notification.data.url)
+  );
 });
