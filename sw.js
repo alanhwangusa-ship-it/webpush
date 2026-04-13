@@ -1,33 +1,25 @@
-self.addEventListener('push', async (event) => {
-  let data = { title: '测试推送', body: '这是默认内容' };
 
-  try {
-    if (event.data) {
-      data = event.data.json();
-    }
-  } catch (e) {
-    console.error('解析 push 数据失败', e);
-  }
 
+// sw.js
+self.addEventListener('push', function(event) {
+  console.log('收到推送事件');
+  
   const options = {
-    body: data.body || '无内容',
-    icon: '/icon.png',
-    badge: '/icon.png',           // iOS 有时需要 badge
-    tag: data.tag || 'default-tag', // 防止重复通知
-    data: { url: data.url || '/' },
-    requireInteraction: false
+    body: '这是一条来自 Cloudflare Worker 的测试通知！',
+    icon: '/icon.png', // 换成你之前的图标
+    badge: '/icon.png'
   };
 
-  // 必须用 waitUntil 包裹，且立即显示通知
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
-      .catch(err => console.error('showNotification 失败', err))
+    self.registration.showNotification('🎉 iOS 推送成功！', options)
   );
 });
 
-self.addEventListener('notificationclick', (event) => {
+// 点击通知时的行为
+self.addEventListener('notificationclick', function(event) {
   event.notification.close();
   event.waitUntil(
-    clients.openWindow(event.notification.data.url)
+    clients.openWindow('/')
   );
 });
+
