@@ -5,8 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Web Push 测试</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 20px; text-align: center; }
+    button { padding: 15px 30px; font-size: 18px; margin: 20px; }
+  </style>
+</head>
+<body>
+  <h1>Web Push 测试（iOS 17+ PWA）</h1>
+  <p>当前状态: <span id="status">未订阅</span></p>
+  
+  <button onclick="subscribe()">订阅推送</button>
+  
+  <p><strong>重要：</strong><br>
+  请从「主屏幕」打开此 PWA（Safari → 分享 → 添加到主屏幕）</p>
+
   <script>
+    // ==================== 配置区 ====================
     const VAPID_PUBLIC_KEY = 'BE55HixrmNwdCVJMkvLUUvKgu4qKvDrNqGR2PmrDA_6ZeNW_6rFazEbB19I0GjyCTorhRyF_mz3y5eMmItKIObE'; // ← 替换
+    const WORKER_URL = 'https://web-push.alanhwangusa.workers.dev';  // ←←← 必须替换成你的 Worker 完整地址
 
     function urlBase64ToUint8Array(base64String) {
       const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -16,52 +32,62 @@
     }
 
     async function subscribe() {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    alert('浏览器不支持 Web Push');
-    return;
-  }
+      const statusEl = document.getElementById('status');
+      statusEl.textContent = '订阅中...';
 
-  const permission = await Notification.requestPermission();
-  alert('通知权限状态: ' + permission);   // ← 新增这行，看看是 granted / denied / default
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        alert('❌ 浏览器不支持 Web Push');
+        statusEl.textContent = '不支持 Web Push';
+        return;
+      }
 
-  if (permission !== 'granted') {
-    alert('用户拒绝了通知权限');
-    return;
-  }
+      // 请求通知权限
+      const permission = await Notification.requestPermission();
+      alert('通知权限状态: ' + permission);
 
-  try {
-    const reg = await navigator.serviceWorker.ready;
-    const subscription = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-    });
+      if (permission !== 'granted') {
+        alert('❌ 用户拒绝通知权限');
+        statusEl.textContent = '权限被拒绝';
+        return;
+      }
 
-    alert('订阅对象已生成，准备发送到服务器...');
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        alert('Service Worker 已就绪');
 
-    const response = await fetch('
-订阅接口: https://web-push.alanhwangusa.workers.dev/subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(subscription.toJSON())
-    });
+        const subscription = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        });
 
-    if (response.ok) {
-      alert('✅ 订阅成功！现在可以去 Worker /send 测试推送了');
-    } else {
-      alert('订阅发送失败，状态码: ' + response.status);
+        alert('✅ 订阅对象生成成功，正在发送到服务器...');
+
+        const response = await fetch(`${WORKER_URL}/subscribe`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(subscription.toJSON())
+        });
+
+        if (response.ok) {
+          alert('🎉 订阅成功！现在可以去 Worker 的 /send 触发推送了');
+          statusEl.textContent = '已订阅';
+        } else {
+          alert('❌ 发送订阅失败，状态码: ' + response.status);
+          statusEl.textContent = '发送失败';
+        }
+      } catch (err) {
+        alert('❌ 订阅过程出错: ' + err.message);
+        console.error(err);
+        statusEl.textContent = '出错';
+      }
     }
-  } catch (err) {
-    alert('订阅过程出错: ' + err.message);
-    console.error(err);
-  }
-}
+
     // 注册 Service Worker
-    navigator.serviceWorker.register('/sw.js').then(() => console.log('SW 注册成功'));
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then(() => console.log('✅ Service Worker 注册成功'))
+        .catch(err => console.error('SW 注册失败', err));
+    }
   </script>
-</head>
-<body>
-  <h1>Web Push 测试（iOS 17+ PWA）</h1>
-  <button onclick="subscribe()">订阅推送</button>
-  <p><strong>iOS 用户请先点击 Safari 右上角“分享” → “添加到主屏幕”</strong></p>
 </body>
 </html>
